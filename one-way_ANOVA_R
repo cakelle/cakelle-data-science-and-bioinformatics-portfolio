@@ -1,0 +1,18 @@
+#ONE WAY ANOVA IN R
+# import table from .txt into a dataframe
+mydf= read.table("my-table.txt",header=TRUE);mydf
+# put data into a matrix
+r= c(t(as.matrix(mydf))) 
+# treatment levels
+f=c("ITEM1","ITEM2","ITEM3")
+# number of treatment levels
+k=3
+#observations per treatment
+n=6
+# gl function to create vector with corresponding treatment factors
+tm= gl(k,1,n*k,factor(f)) #matching treatments
+tm
+#apply the function aov
+av= aov(r~tm)
+#print ANOVA table
+summary(av) 
