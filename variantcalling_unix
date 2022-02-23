@@ -1,0 +1,27 @@
+#Shell Scripting in Unix - Variant Calling 
+
+# variables for the reference sequence
+bwa_ref="/home/cakelle/tiny-test-data/genomes/Hsapiens/hg19/bwa/hg19.fa"
+sam_ref="/home/cakelle/tiny-test-data/genomes/Hsapiens/hg19/seq/hg19.fa"
+
+#variable for the sample name to avoid hardcoding into pipeline
+sample_name=$1
+echo $sample_name
+
+#alignment to ref
+bwa mem $bwa_ref ${sample_name}_1.fq.gz ${sample_name}_2.fq.gz > $sample_name.sam
+
+#sort
+samtools sort ${sample_name}.sam > ${sample_name}_s.sam
+
+#variant calling
+samtools mpileup -Ou -f $sam_ref ${sample_name}_s.sam | bcftools call -vmO v -o ${sample_name}.vcf
+
+#print the variants
+cat ${sample_name}.vcf
+
+#count the number of variants
+for i in ${sample_name}.vcf; do echo "The total number of variants in sample $i is: "; grep -v '^#' $i | awk ' BEGIN {count=0;}  { if ($6 > 0) count+=1} END { print count }'; done | sed 's/${sample_name}//' | sed 's/.vcf//'
+
+#average the quality scores
+for f in ${sample_name}.vcf; do echo "The average quality score for variants in sample $f is: "; grep -v '^#' $f | awk ' { sum += $6; n++} END { if (n > 0) print sum / n; }'; done | sed 's/${sample_name}//' | sed 's/.vcf//'
