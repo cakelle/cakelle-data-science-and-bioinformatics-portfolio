@@ -1,0 +1,207 @@
+#Retail Analysis with Walmart Data
+#Project 1 
+#DESCRIPTION
+#One of the leading retail stores in the US, Walmart, would like to predict the sales and demand accurately. There #are certain events and holidays which impact sales on each day. There are sales data available for 45 stores of #Walmart.
+#These steps were performed for all the following analyses:
+#Import data
+walmart_data <- read.csv("walmart_store_sales.csv")
+#Check data structures
+str(walmart_data)
+#load relevant libraries
+library(plyr)
+library(caTools)
+library(lubridate)
+library(ggplot2)
+library(hydroTSM)
+
+#1. Which store has maximum sales?
+#Create an aggregate of weekly sales by store numbers, use the sum function to find the sum of sales per store and store in variable
+store_sales_sums<- aggregate(walmart_data$Weekly_Sales, 
+                             by=list(Store=walmart_data$Store), FUN=sum)
+#Find the max sales with max function
+max(store_sales_sums)
+
+#create simple barplot
+p<-ggplot(data=store_sales_sums, aes(x=Store, y=x)) +
+  geom_bar(stat="identity")
+
+#2. Which store has maximum standard deviation i.e., the sales vary a lot. Also, find the coefficient of mean to standard deviation
+
+#Create an aggregate of weekly sales by store numbers, use the SD function to find SD, and store in variable
+store_sales_sd<- aggregate(walmart_data$Weekly_Sales, 
+                             by=list(Store=walmart_data$Store), FUN=sd)
+
+
+#Find the max SD
+max(store_sales_sd)
+
+#create simple barplot
+p2<-ggplot(data=store_sales_sd, aes(x=Store, y=x)) +
+  geom_bar(stat="identity")
+
+#Create an aggregate of weekly sales by store numbers, use the mean function to find mean, and store in variable
+store_sales_mean<- aggregate(walmart_data$Weekly_Sales, 
+                           by=list(Store=walmart_data$Store), FUN=mean)
+
+#Find coefficient of variance- sd/mean*100
+store_sales_coef<- (store_sales_sd/store_sales_mean)*100
+
+print(store_sales_coef$x)
+
+#3. Which store/s has good quarterly growth rate in Q3’2012
+#convert Date to date format
+walmart_data$Date =dmy(walmart_data$Date)
+#get subset of q2
+walmart_data_q2 <- walmart_data[walmart_data$Date >= "2012-04-01" & walmart_data$Date <= "2012-06-30", ]
+#get subset of q3
+walmart_data_q3 <-walmart_data[walmart_data$Date >= "2012-07-01" & walmart_data$Date <= "2012-09-30", ]
+#Sum quarterly sales per store
+store_sales_q2<- aggregate(walmart_data_q2$Weekly_Sales, 
+                           by=list(Store=walmart_data_q2$Store), FUN=sum)
+store_sales_q3<- aggregate(walmart_data_q3$Weekly_Sales, 
+                           by=list(Store=walmart_data_q3$Store), FUN=sum)
+
+#calculate growth rate ((q3-q2)/q2)
+growthrate <- ((store_sales_q3-store_sales_q2)/store_sales_q2)
+#label the data with store numbers
+growthrate$Store <- 1:45
+
+#plot growth rate
+gr<-ggplot(data=growthrate, aes(x=Store, y=x)) +
+ 	 geom_bar(stat="identity")
+
+#get values >0 for positive growth rate
+for (i in growthrate$x)
+{	if(i>0)
+{	print(i) }
+}
+#make table
+grtable <- matrix(c(7,16,23,24,26,35,39,40,41,44,
+                    .13,.08,.01,.02,.04,.04,.02,.01,.02,.02)
+                    , ncol=2, byrow=FALSE)
+colnames(grtable) <- c('Store Number','Growth Rate')
+
+#4. Some holidays have a negative impact on sales. Find out holidays which have higher sales than the mean sales in non-holiday season for all stores together
+#Mean of non-holiday sales for all stores
+non_holiday_sub <- subset(walmart_data,walmart_data$Holiday_Flag=='0')
+non_holiday_mean<- mean(non_holiday_sub$Weekly_Sales)
+non_holiday_mean
+
+#Find holidays with lower sales than non-holiday mean (1041256)
+#extract data from each holiday for each of the four years
+superbowl <- walmart_data[walmart_data$Date == "2010-02-12"
+                          |walmart_data$Date == "2011-02-11"
+                          |walmart_data$Date == "2012-02-10" 
+                          |walmart_data$Date == "2013-02-08", ]
+
+laborday <- walmart_data[walmart_data$Date == "2010-09-10"
+                          |walmart_data$Date == "2011-09-09"
+                          |walmart_data$Date == "2012-09-07" 
+                          |walmart_data$Date == "2013-09-06", ]
+
+thanksgiving <- walmart_data[walmart_data$Date == "2010-11-26"
+                          |walmart_data$Date == "2011-11-25"
+                          |walmart_data$Date == "2012-11-23" 
+                          |walmart_data$Date == "2013-11-29", ]
+
+christmas <- walmart_data[walmart_data$Date == "2010-12-31"
+                          |walmart_data$Date == "2011-12-30"
+                          |walmart_data$Date == "2012-12-28" 
+                          |walmart_data$Date == "2013-12-27", ]
+
+#Calculate the means of each holiday and put into a vector with the non-holiday mean
+holiday_means<- c(non_holiday_mean,
+                  mean(superbowl$Weekly_Sales), 
+                  mean(laborday$Weekly_Sales),
+                  mean(thanksgiving$Weekly_Sales),
+                  mean(christmas$Weekly_Sales))
+
+#Create simple barchart
+barplot(holiday_means,
+     	   main = "Mean Weekly Sales",
+      	  ylab = "Sales",
+     	   names.arg = c("Non-Holiday","Super Bowl", "Labor Day",
+                 		     "Thanksgiving", "Christmas"),
+      	  col = "darkred",
+      	  horiz = FALSE)
+
+#5. Provide a monthly and semester view of sales in units and give insights
+#create new df with just dates and sales
+walmartdata9<- walmart_data[,c(2,3)]
+
+#Calculate mean of all stores in all years per month
+monthview<-monthlyfunction(walmartdata9, FUN=mean, na.rm = TRUE, dates=1, 
+           		     date.fmt = "%Y-%m-%d", out.type = "data.frame", verbose = TRUE)
+
+#create barplot to visualize sales
+barplot(monthview,
+      	  main = "Mean Sales by Month",
+    	    ylab = "Sales",
+    	    names.arg = c("Jan","Feb", "March",
+       	               "Apr", "May", "June", "July", "Aug",
+            	          "Sept", "Oct", "Nov", "Dec"),
+   	     col = "blue",
+      	  horiz = FALSE)
+#create dfs for each semester
+semester1view <- walmartdata9[walmartdata9$Date >= "2010-01-01" & walmartdata9$Date <= "2010-06-30"
+                             |walmartdata9$Date >= "2011-01-01" & walmartdata9$Date <= "2011-06-30"
+                             |walmartdata9$Date >= "2012-01-01" & walmartdata9$Date <= "2012-06-30"
+                             |walmartdata9$Date >= "2013-01-01" & walmartdata9$Date <= "2013-06-30", ]
+
+semester2view <- walmartdata9[walmartdata9$Date >= "2010-07-01" & walmartdata9$Date <= "2010-12-31"
+                              |walmartdata9$Date >= "2011-07-01" & walmartdata9$Date <= "2011-12-31"
+                              |walmartdata9$Date >= "2012-07-01" & walmartdata9$Date <= "2012-12-31"
+                              |walmartdata9$Date >= "2013-07-01" & walmartdata9$Date <= "2013-12-31", ]
+
+#calculate means and put into table
+semesterview<- c(mean(semester1view$Weekly_Sales), mean(semester2view$Weekly_Sales))
+semesterview <- as.table(semesterview)
+
+#Statistical Model
+#For Store 1 – Build prediction models to forecast demand
+#Linear Regression –Hypothesize if CPI, unemployment, fuel, etc price have any impact on sales.
+# Use linear model function to compare weekly sales with other variables to determine what impacts sales
+#convert Holiday Flag to factor
+walmart_data$Holiday_Flag <- sapply(walmart_data$Holiday_Flag, factor)
+str(walmart_data)
+# with other variables to determine what impacts sales
+sales_impact <- lm(formula = Weekly_Sales  ~ Date + Holiday_Flag + Temperature +
+                     Fuel_Price + CPI + Unemployment
+                   , data= walmart_data)
+#view statistical data
+summary(sales_impact)
+
+#Try a simple regression with trained data to see if we can get a better R squared
+#Try a simple regression with trained data to see if we can get
+#a better R squared
+
+simple_impact2 = walmart_data[,3:8]
+names(simple_impact2)
+
+#Splitting the dataset 
+set.seed(123)
+split <- sample.split(simple_impact2$Weekly_Sales,SplitRatio = 0.7)
+training_set = subset(simple_impact2,split==TRUE)
+test_set = subset(simple_impact2,split==FALSE)
+
+#Fitting Simple Linear Model to the Training Set
+
+Classifier = lm(formula = Weekly_Sales~Holiday_Flag + Temperature +
+           	       Fuel_Price + CPI + Unemployment,
+          	      data=simple_impact2)
+summary(Classifier)
+#Change dates into days of the week
+
+#check structure - chr
+str(walmart_data)
+#convert chr to date
+walmart_data$Date =dmy(walmart_data$Date)
+
+#view
+walmart_data
+#check structure
+str(walmart_data)
+#convert to weekday
+walmart_dataDate <- weekdays(walmart_data$Date)
+
+
